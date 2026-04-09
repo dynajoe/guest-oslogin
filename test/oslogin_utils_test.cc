@@ -444,6 +444,8 @@ TEST(GetGroupByTest, GetGroupByNameSucceeds) {
   struct group grp = {};
   ASSERT_TRUE(GetGroupByName("demo", &grp, &buf, &errnop));
   ASSERT_EQ(errnop, 0);
+  ASSERT_STREQ(grp.gr_passwd, "");
+  ASSERT_STREQ(grp.gr_name, "demo");
 }
 
 TEST(GetGroupByTest, GetGroupByGIDSucceeds) {
@@ -460,6 +462,21 @@ TEST(GetGroupByTest, GetGroupByGIDSucceeds) {
   struct group grp = {};
   ASSERT_TRUE(GetGroupByGID((uint32_t)123452, &grp, &buf, &errnop));
   ASSERT_EQ(errnop, 0);
+  ASSERT_STREQ(grp.gr_passwd, "");
+  ASSERT_EQ(grp.gr_gid, (uint32_t)123452);
+}
+
+TEST(AddUsersToGroupTest, EmptyListSetsGrMem) {
+  size_t buflen = 32;
+  char* buffer = (char*)malloc(buflen);
+  ASSERT_STRNE(buffer, NULL);
+  BufferManager buf(buffer, buflen);
+  int errnop = 0;
+  struct group grp = {};
+  std::vector<string> empty;
+  ASSERT_TRUE(AddUsersToGroup(empty, &grp, &buf, &errnop));
+  ASSERT_NE(grp.gr_mem, (char**)NULL);
+  ASSERT_EQ(grp.gr_mem[0], (char*)NULL);
 }
 
 TEST(CurlClient, RetryLogic) {
