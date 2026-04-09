@@ -123,6 +123,11 @@ getselfgrgid(gid_t gid, struct group *grp, char *buf,
     while (fgetpwent_r(p_file, &user, userbuf, MAXBUFSIZE, &userp) == 0) {
       if (user.pw_uid == gid) {
         memset(grp, 0, sizeof(struct group));
+        grp->gr_gid = user.pw_uid;
+        if (!buffer_manager.AppendString("", &grp->gr_passwd, errnop)) {
+          fclose(p_file);
+          return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
+        }
 
         // Copy from userbuf to user-provided buffer.
         if (!buffer_manager.AppendString(user.pw_name, &grp->gr_name, errnop)) {
@@ -164,12 +169,15 @@ getselfgrgid(gid_t gid, struct group *grp, char *buf,
   if (result.pw_gid != result.pw_uid) {
     return NSS_STATUS_NOTFOUND;
   }
+  memset(grp, 0, sizeof(struct group));
+  grp->gr_gid = result.pw_uid;
+  if (!buffer_manager.AppendString("", &grp->gr_passwd, errnop)) {
+    return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
+  }
   // Set the group name to the name of the matching user.
   if (!buffer_manager.AppendString(result.pw_name, &grp->gr_name, errnop)) {
     return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
   }
-
-  grp->gr_gid = result.pw_uid;
 
   // Create a list of only the matching user and add to members list.
   std::vector<string> members;
@@ -197,8 +205,15 @@ getselfgrnam(const char* name, struct group *grp,
     while (fgetpwent_r(p_file, &user, userbuf, MAXBUFSIZE, &userp) == 0) {
       if (strcmp(user.pw_name, name) == 0) {
         memset(grp, 0, sizeof(struct group));
-
         grp->gr_gid = user.pw_uid;
+        if (!buffer_manager.AppendString("", &grp->gr_passwd, errnop)) {
+          fclose(p_file);
+          return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
+        }
+        if (!buffer_manager.AppendString(user.pw_name, &grp->gr_name, errnop)) {
+          fclose(p_file);
+          return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
+        }
 
         // Add user to group.
         std::vector<string> members;
@@ -234,12 +249,15 @@ getselfgrnam(const char* name, struct group *grp,
   if (result.pw_gid != result.pw_uid) {
     return NSS_STATUS_NOTFOUND;
   }
+  memset(grp, 0, sizeof(struct group));
+  grp->gr_gid = result.pw_uid;
+  if (!buffer_manager.AppendString("", &grp->gr_passwd, errnop)) {
+    return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
+  }
   // Set the group name to the name of the matching user.
   if (!buffer_manager.AppendString(result.pw_name, &grp->gr_name, errnop)) {
     return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
   }
-
-  grp->gr_gid = result.pw_uid;
 
   // Create a list of only the matching user and add to members list.
   std::vector<string> members;
@@ -275,7 +293,7 @@ _nss_oslogin_getgrgid_r(gid_t gid, struct group *grp, char *buf,
     return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
   }
 
-  if (!users.empty() && !AddUsersToGroup(users, grp, &buffer_manager, errnop)) {
+  if (!AddUsersToGroup(users, grp, &buffer_manager, errnop)) {
     return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
   }
   return NSS_STATUS_SUCCESS;
@@ -306,7 +324,7 @@ _nss_oslogin_getgrnam_r(const char *name, struct group *grp,
     return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
   }
 
-  if (!users.empty() && !AddUsersToGroup(users, grp, &buffer_manager, errnop)) {
+  if (!AddUsersToGroup(users, grp, &buffer_manager, errnop)) {
     return *errnop == ERANGE ? NSS_STATUS_TRYAGAIN : NSS_STATUS_NOTFOUND;
   }
   return NSS_STATUS_SUCCESS;

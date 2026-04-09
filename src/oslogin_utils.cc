@@ -905,11 +905,9 @@ cleanup:
 
 bool AddUsersToGroup(std::vector<string> users, struct group* result,
                      BufferManager* buf, int* errnop) {
-  if (users.size() < 1) {
-    return true;
-  }
-
   // Get some space for the char* array for number of users + 1 for NULL cap.
+  // Always allocate (even when users is empty) so callers get a valid
+  // NULL-terminated gr_mem; glibc's __copy_grp / nscd grpcache dereference it.
   char** bufp;
   if (!(bufp =
             (char**)buf->Reserve(sizeof(char*) * (users.size() + 1), errnop))) {
@@ -1118,6 +1116,9 @@ bool GetGroupByName(string name, struct group* result, BufferManager* buf, int* 
 
   Group el = groups[0];
   result->gr_gid = el.gid;
+  if (!buf->AppendString("", &result->gr_passwd, errnop)) {
+    return false;
+  }
   if (!buf->AppendString(el.name, &result->gr_name, errnop)) {
     return false;
   }
@@ -1151,6 +1152,9 @@ bool GetGroupByGID(uint32_t gid, struct group* result, BufferManager* buf, int* 
 
   Group el = groups[0];
   result->gr_gid = el.gid;
+  if (!buf->AppendString("", &result->gr_passwd, errnop)) {
+    return false;
+  }
   if (!buf->AppendString(el.name, &result->gr_name, errnop)) {
     return false;
   }
